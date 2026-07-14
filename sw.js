@@ -1,4 +1,4 @@
-const VERSION = 'foreign-vocab-pwa-v5-mushroom';
+const VERSION = 'foreign-vocab-pwa-v6-features';
 const STATIC_CACHE = `${VERSION}-static`;
 const DATA_CACHE = `${VERSION}-data`;
 const APP_SHELL = [

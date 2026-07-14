@@ -67,6 +67,7 @@
           <button class="action-card" data-go="review"><b>到期复习</b><span id="reviewHint">当前没有到期词汇</span></button>
           <button class="action-card" data-go="test"><b>词汇测试</b><span>选择题与拼写测试</span></button>
           <button class="action-card" data-go="library"><b>词库管理</b><span>搜索、筛选、导入和导出</span></button>
+          <button class="action-card wrong-card" data-go="wrong"><b>错词本</b><span id="wrongHint">还没有错词</span></button>
         </div>
 
         <div class="section-head"><div><p class="eyebrow">SOURCES</p><h3>文章来源</h3></div></div>
@@ -88,7 +89,7 @@
             <div class="card-meta"><span id="cardWeek"></span><span id="cardArticle"></span></div>
             <div class="card-main">
               <p class="hint">点击卡片显示释义</p>
-              <h2 id="cardWord">word</h2>
+              <div class="word-heading"><h2 id="cardWord">word</h2><button class="speak-btn" id="speakCardWord" type="button" aria-label="播放发音" title="播放发音">🔊</button></div>
               <div id="cardAnswer" class="answer hidden"><div class="divider"></div><p id="cardMeaning"></p></div>
             </div>
           </article>
@@ -112,13 +113,13 @@
           <h3>测试设置</h3>
           <label>测试类型<select id="testType"><option value="choice">英文选中文</option><option value="reverse">中文选英文</option><option value="spelling">中文拼写英文</option></select></label>
           <label>题目数量<select id="testCount"><option>10</option><option>20</option><option>30</option></select></label>
-          <label>范围<select id="testScope"><option value="learned">已学习词汇</option><option value="all">全部词汇</option><option value="due">到期复习词汇</option></select></label>
+          <label>范围<select id="testScope"><option value="learned">已学习词汇</option><option value="all">全部词汇</option><option value="due">到期复习词汇</option><option value="wrong">错词本</option></select></label>
           <button class="primary full" id="startTest">开始测试</button>
         </div>
         <div id="testGame" class="hidden">
           <article class="quiz-card">
             <p class="eyebrow" id="quizSource"></p>
-            <h2 id="quizPrompt"></h2>
+            <h2 id="quizPrompt"></h2><button id="speakQuizWord" class="speak-pill hidden" type="button">🔊 播放发音</button>
             <div id="choiceOptions" class="choice-list"></div>
             <form id="spellingForm" class="hidden"><input id="spellingInput" autocomplete="off" spellcheck="false" placeholder="输入英文单词或短语"><button class="primary">提交</button></form>
             <div id="quizFeedback" class="feedback hidden"></div>
@@ -139,9 +140,23 @@
           <select id="weekFilter"><option value="all">全部周次</option></select>
           <select id="statusFilter"><option value="all">全部状态</option><option value="new">未学习</option><option value="learning">学习中</option><option value="mastered">已掌握</option></select>
         </div>
-        <div class="library-actions"><button class="soft" id="openImport">＋ 导入词汇</button><button class="soft" id="exportJson">导出备份</button><button class="soft" id="exportCsv">导出 CSV</button></div>
+        <div class="library-actions"><button class="soft" id="openImport">＋ 导入词汇</button><button class="soft" id="exportJson">导出备份</button><button class="soft" id="exportCsv">导出 CSV</button><button class="soft" id="openWrongBook">错词本</button></div>
         <div id="wordList" class="word-list"></div>
         <button id="loadMore" class="soft full hidden">加载更多</button>
+      </section>
+
+      <section class="view" id="wrongView">
+        <div class="view-head">
+          <button class="back-btn" data-go="home">←</button>
+          <div><p class="eyebrow">WRONG WORDS</p><h2>错词本</h2></div>
+          <span class="counter" id="wrongCount">0</span>
+        </div>
+        <div class="wrong-toolbar">
+          <input id="wrongSearch" type="search" placeholder="搜索错词或中文释义">
+          <button class="primary" id="studyWrong">复习错词</button>
+        </div>
+        <p class="help wrong-help">测试答错或背词时选择“忘记”的单词会自动进入错词本。掌握后可手动移除。</p>
+        <div id="wrongWordList" class="word-list"></div>
       </section>
     </main>
 
@@ -158,6 +173,23 @@
     <form method="dialog" class="dialog-card">
       <div class="dialog-head"><div><p class="eyebrow">SETTINGS</p><h3>学习与同步设置</h3></div><button value="cancel" class="icon-btn">×</button></div>
       <label>每日新词目标<input id="goalInput" type="number" min="5" max="200" step="5"></label>
+      <label>界面配色
+        <select id="themeSelect">
+          <option value="forest">森林绿</option>
+          <option value="mushroom">蘑菇橙</option>
+          <option value="lavender">薰衣草紫</option>
+          <option value="ocean">海盐蓝</option>
+        </select>
+      </label>
+      <div class="theme-preview" id="themePreview" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <label>英语发音
+        <select id="accentSelect"><option value="en-US">美式英语</option><option value="en-GB">英式英语</option></select>
+      </label>
+      <label>发音速度
+        <select id="speechRateSelect"><option value="0.8">较慢</option><option value="0.95">标准</option><option value="1.1">较快</option></select>
+      </label>
+      <label class="check-row"><input id="autoSpeakInput" type="checkbox"> 新词出现时自动发音</label>
+      <button type="button" class="soft full" id="testVoice">🔊 试听发音</button>
       <label>额外远程词库 JSON 地址（可选）<input id="syncUrlInput" type="url" placeholder="例如 GitHub Raw / Supabase 地址"></label>
       <p class="help">App 默认会自动检查项目内的 vocab.json。也可以在这里绑定另一个固定词库地址；新增词汇会自动合并，不会覆盖你的学习进度。</p>
       <div class="sync-row"><span id="syncStatus">尚未配置远程同步</span><button type="button" class="soft" id="syncNow">立即同步</button></div>
