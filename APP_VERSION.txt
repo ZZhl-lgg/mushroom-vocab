@@ -1,0 +1,4 @@
+外刊词库 PWA v1.1
+Build date: 2026-07-15
+Bundled vocabulary: 375 words (Week25 + Week27)
+Icon: 可爱蘑菇版
