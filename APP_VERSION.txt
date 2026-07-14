@@ -1,5 +1,6 @@
-外刊词库 PWA v1.2
+外刊词库 PWA v1.2.1
 Build date: 2026-07-15
 Bundled vocabulary: 375 words (Week25 + Week27)
 Icon: 可爱蘑菇版
 New: 四套配色、英语发音、错词本
+Fix: iPhone/PWA 发音初始化与连续播放兼容性

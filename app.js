@@ -7,6 +7,7 @@ let words=[], progress={}, wrongBook={}, settings={...defaultSettings}, currentM
 let test={items:[],index:0,correct:0,answered:false,type:'choice'};
 let libraryLimit=80;
 let deferredInstallPrompt=null, waitingWorker=null;
+let voiceCache=[], activeUtterance=null, speechTimer=null, speechUnlocked=false;
 const BUILT_IN_SYNC_URL='./vocab.json';
 
 function read(key, fallback){ try{return JSON.parse(localStorage.getItem(key)) ?? fallback}catch{return fallback} }
@@ -35,15 +36,52 @@ function applyTheme(theme=settings.theme||'forest'){
   const colors={forest:'#244b41',mushroom:'#d95f45',lavender:'#6f5aa8',ocean:'#24728e'};
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',colors[chosen]);
 }
-function preferredVoice(){
-  const voices=window.speechSynthesis?.getVoices?.()||[];const lang=settings.accent||'en-US';
-  return voices.find(v=>v.lang===lang)||voices.find(v=>v.lang?.toLowerCase().startsWith(lang.slice(0,2).toLowerCase()))||null;
+function refreshVoices(){
+  try{voiceCache=window.speechSynthesis?.getVoices?.()||[]}catch{voiceCache=[]}
+  return voiceCache;
 }
+function preferredVoice(){
+  const voices=refreshVoices();const lang=settings.accent||'en-US';const short=lang.slice(0,2).toLowerCase();
+  return voices.find(v=>v.lang===lang)||voices.find(v=>v.lang?.toLowerCase().startsWith(short))||voices.find(v=>v.default)||null;
+}
+function clearSpeechButton(button){if(button)button.classList.remove('speaking')}
 function speak(text,button=null){
-  text=String(text||'').trim();if(!text||!('speechSynthesis' in window)){toast('当前设备不支持语音发音');return}
-  window.speechSynthesis.cancel();const utter=new SpeechSynthesisUtterance(text);utter.lang=settings.accent||'en-US';utter.rate=Number(settings.speechRate)||0.95;const voice=preferredVoice();if(voice)utter.voice=voice;
-  if(button){button.classList.add('speaking');utter.onend=utter.onerror=()=>button.classList.remove('speaking')}
-  window.speechSynthesis.speak(utter);
+  text=String(text||'').trim();
+  if(!text||!('speechSynthesis' in window)||typeof SpeechSynthesisUtterance==='undefined'){
+    toast('当前设备不支持语音发音');return;
+  }
+  const synth=window.speechSynthesis;
+  clearTimeout(speechTimer);
+  if(button)button.classList.add('speaking');
+  const start=()=>{
+    const utter=new SpeechSynthesisUtterance(text);
+    activeUtterance=utter;
+    utter.lang=settings.accent||'en-US';
+    utter.rate=Number(settings.speechRate)||0.95;
+    utter.pitch=1;
+    utter.volume=1;
+    const voice=preferredVoice();if(voice)utter.voice=voice;
+    utter.onstart=()=>{speechUnlocked=true};
+    utter.onend=()=>{clearSpeechButton(button);if(activeUtterance===utter)activeUtterance=null};
+    utter.onerror=event=>{
+      clearSpeechButton(button);if(activeUtterance===utter)activeUtterance=null;
+      if(event.error==='canceled'||event.error==='interrupted')return;
+      toast(event.error==='not-allowed'?'请先手动点击一次发音按钮':'发音失败，请调高媒体音量后重试');
+    };
+    try{
+      if(synth.paused)synth.resume();
+      synth.speak(utter);
+      setTimeout(()=>{if(synth.paused)synth.resume()},120);
+    }catch{
+      clearSpeechButton(button);toast('发音启动失败，请重新点击');
+    }
+  };
+  if(synth.speaking||synth.pending){
+    synth.cancel();
+    speechTimer=setTimeout(start,120);
+  }else{
+    start();
+  }
 }
 
 
@@ -98,6 +136,7 @@ function openInitialView(){
 }
 async function init(){
   settings={...defaultSettings,...read(KEYS.settings,{})};progress=read(KEYS.progress,{});wrongBook=read(KEYS.wrong,{});applyTheme(settings.theme);
+  if('speechSynthesis' in window){refreshVoices();window.speechSynthesis.addEventListener?.('voiceschanged',refreshVoices)}
   const bundled=window.__VOCAB_DATA__?.words||[];
   words=mergeWords(bundled,read(KEYS.custom,[]),read(KEYS.remote,[]));
   bind();setupPWA();populateFilters();renderHome();renderLibrary();openInitialView();
@@ -146,7 +185,7 @@ function startSession(mode){
 }
 function showCard(){
   const empty=queueIndex>=queue.length;$('#emptyStudy').classList.toggle('hidden',!empty);$('#studyArea').classList.toggle('hidden',empty);$('#studyCounter').textContent=`${Math.min(queueIndex+1,queue.length)} / ${queue.length}`;if(empty)return;
-  const w=queue[queueIndex];revealed=false;$('#cardWord').textContent=w.word;$('#cardMeaning').textContent=w.meaning;$('#cardWeek').textContent=w.week;$('#cardArticle').textContent=w.article;$('#cardAnswer').classList.add('hidden');$('#ratingButtons').classList.add('hidden');$('#revealButton').classList.remove('hidden');if(settings.autoSpeak)setTimeout(()=>speak(w.word,$('#speakCardWord')),120);
+  const w=queue[queueIndex];revealed=false;$('#cardWord').textContent=w.word;$('#cardMeaning').textContent=w.meaning;$('#cardWeek').textContent=w.week;$('#cardArticle').textContent=w.article;$('#cardAnswer').classList.add('hidden');$('#ratingButtons').classList.add('hidden');$('#revealButton').classList.remove('hidden');if(settings.autoSpeak&&speechUnlocked)setTimeout(()=>speak(w.word,$('#speakCardWord')),120);
 }
 function reveal(){if(queueIndex>=queue.length||revealed)return;revealed=true;$('#cardAnswer').classList.remove('hidden');$('#ratingButtons').classList.remove('hidden');$('#revealButton').classList.add('hidden')}
 function rate(kind,word=queue[queueIndex],countActivity=true){
